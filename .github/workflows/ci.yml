@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Testes e infraestrutura
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: Obter o código
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verificar sintaxe e executar testes
+        run: |
+          mkdir -p reports
+          python -m compileall -q app.py tests scripts
+          python -m unittest discover -s tests -v 2>&1 | tee reports/tests.txt
+          python -m zipfile -c reports/app.zip app.py Dockerfile
+
+      - name: Preparar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.6"
+          terraform_wrapper: false
+
+      - name: Conferir formatação
+        run: terraform -chdir=infra fmt -check -recursive
+
+      - name: Inicializar provedores
+        id: tfinit
+        run: terraform -chdir=infra init -input=false
+
+      - name: Validar infraestrutura
+        run: terraform -chdir=infra validate -no-color | tee reports/terraform-validate.txt
+
+      - name: Testar regras da infraestrutura com provedor simulado
+        run: terraform -chdir=infra test -no-color | tee reports/terraform-tests.txt
+
+      - name: Planejar ambiente temporário
+        run: terraform -chdir=infra plan -input=false -no-color -out=ci.tfplan | tee reports/terraform-plan.txt
+
+      - name: Provisionar ambiente temporário
+        run: terraform -chdir=infra apply -input=false -no-color ci.tfplan | tee reports/terraform-apply.txt
+
+      - name: Testar API no contêiner
+        run: python scripts/smoke_test.py "$(terraform -chdir=infra output -raw api_url)" | tee reports/smoke.txt
+
+      - name: Verificar convergência da infraestrutura
+        run: terraform -chdir=infra plan -input=false -detailed-exitcode -no-color | tee reports/terraform-no-changes.txt
+
+      - name: Coletar logs do contêiner
+        if: always() && steps.tfinit.outcome == 'success'
+        run: |
+          if docker container inspect devops-fase1-tarefas >/dev/null 2>&1; then
+            docker logs devops-fase1-tarefas > reports/container.txt 2>&1
+          fi
+
+      - name: Remover ambiente temporário
+        if: always() && steps.tfinit.outcome == 'success'
+        run: terraform -chdir=infra destroy -auto-approve -input=false -no-color | tee reports/terraform-destroy.txt
+
+      - name: Guardar relatórios e aplicação
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-${{ github.sha }}
+          path: reports/
+          retention-days: 7
+          if-no-files-found: warn

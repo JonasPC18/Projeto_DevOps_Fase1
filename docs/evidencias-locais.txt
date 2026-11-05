@@ -1,0 +1,85 @@
+EVIDÊNCIAS LOCAIS - FASE 1
+Registro histórico da preparação, anterior à publicação do repositório.
+O status remoto atual deve ser consultado na aba Actions do GitHub.
+Data: 2026-11-04T18:07:34-03:00
+
+RESULTADOS
+- Python: 24 testes passaram (10 de regras/persistência, 14 HTTP).
+- Smoke test: passou com a API executando como processo local.
+- Terraform 1.14.6: fmt -check -recursive passou.
+- terraform init: provider Docker 4.6.0 instalado e lock file criado.
+- terraform validate: bloqueado pelo ambiente antes de carregar o schema.
+- terraform test: bloqueado pelo mesmo motivo; nenhum teste de IaC executado.
+- Motivo técnico: o ambiente não permite o socket Unix usado na comunicação entre Terraform e provider.
+- Docker e terraform apply: não executados; Docker Engine indisponível.
+- GitHub Actions: não executado; repositório remoto ainda não criado.
+- GitHub: autenticação no navegador terminou em erro do serviço.
+
+Os resultados locais não comprovam uma execução remota nem o provisionamento.
+Os quatro cenários de IaC foram escritos e integrados ao workflow, mas ainda precisam ser executados.
+
+SAÍDA DOS TESTES PYTHON
+test_complete_task_lifecycle (test_http.HttpTests.test_complete_task_lifecycle) ... 127.0.0.1 - - [04/Nov/2026 18:00:53] "POST /tasks HTTP/1.1" 201 -
+127.0.0.1 - - [04/Nov/2026 18:00:53] "GET /tasks HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 18:00:53] "GET /tasks/1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 18:00:53] "PATCH /tasks/1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 18:00:53] "DELETE /tasks/1 HTTP/1.1" 204 -
+127.0.0.1 - - [04/Nov/2026 18:00:53] "GET /tasks/1 HTTP/1.1" 404 -
+ok
+test_disallowed_method_returns_405 (test_http.HttpTests.test_disallowed_method_returns_405) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "PUT /tasks HTTP/1.1" 405 -
+ok
+test_empty_title_returns_400 (test_http.HttpTests.test_empty_title_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_health (test_http.HttpTests.test_health) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "GET /health HTTP/1.1" 200 -
+ok
+test_invalid_done_returns_400 (test_http.HttpTests.test_invalid_done_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 201 -
+127.0.0.1 - - [04/Nov/2026 18:00:54] "PATCH /tasks/1 HTTP/1.1" 400 -
+ok
+test_invalid_json_returns_400 (test_http.HttpTests.test_invalid_json_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_json_array_returns_400 (test_http.HttpTests.test_json_array_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_long_title_returns_400 (test_http.HttpTests.test_long_title_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_missing_title_returns_400 (test_http.HttpTests.test_missing_title_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_oversized_body_returns_400 (test_http.HttpTests.test_oversized_body_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_unicode_round_trip (test_http.HttpTests.test_unicode_round_trip) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 201 -
+127.0.0.1 - - [04/Nov/2026 18:00:54] "GET /tasks/1 HTTP/1.1" 200 -
+ok
+test_unknown_route_returns_404 (test_http.HttpTests.test_unknown_route_returns_404) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "GET /inexistente HTTP/1.1" 404 -
+ok
+test_unknown_task_returns_404 (test_http.HttpTests.test_unknown_task_returns_404) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "PATCH /tasks/999 HTTP/1.1" 404 -
+ok
+test_wrong_content_type_returns_400 (test_http.HttpTests.test_wrong_content_type_returns_400) ... 127.0.0.1 - - [04/Nov/2026 18:00:54] "POST /tasks HTTP/1.1" 400 -
+ok
+test_accepts_maximum_title (test_store.TaskStoreTests.test_accepts_maximum_title) ... ok
+test_create_trims_title_and_starts_pending (test_store.TaskStoreTests.test_create_trims_title_and_starts_pending) ... ok
+test_data_persists_when_store_reopens (test_store.TaskStoreTests.test_data_persists_when_store_reopens) ... ok
+test_delete_removes_only_selected_task (test_store.TaskStoreTests.test_delete_removes_only_selected_task) ... ok
+test_mark_done_and_reopen (test_store.TaskStoreTests.test_mark_done_and_reopen) ... ok
+test_missing_tasks_raise_key_error (test_store.TaskStoreTests.test_missing_tasks_raise_key_error) ... ok
+test_rejects_invalid_titles (test_store.TaskStoreTests.test_rejects_invalid_titles) ... ok
+test_rejects_non_boolean_done (test_store.TaskStoreTests.test_rejects_non_boolean_done) ... ok
+test_sql_text_is_stored_as_data (test_store.TaskStoreTests.test_sql_text_is_stored_as_data) ... ok
+test_starts_empty (test_store.TaskStoreTests.test_starts_empty) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.267s
+
+OK
+
+SMOKE TEST
+Smoke test aprovado: saúde, criação, listagem, conclusão e exclusão.
+
+COMANDOS PARA REPRODUZIR
+python -m compileall -q app.py tests scripts
+python -m unittest discover -s tests -v
+terraform -chdir=infra init
+terraform -chdir=infra fmt -check -recursive
+terraform -chdir=infra validate
+terraform -chdir=infra test
+terraform -chdir=infra plan
+terraform -chdir=infra apply
+python scripts/smoke_test.py http://127.0.0.1:8000
