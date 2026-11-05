@@ -6,7 +6,7 @@ Este projeto usa uma API de tarefas para colocar em prática o planejamento, a i
 
 **Repositório:** https://github.com/JonasPC18/Projeto_DevOps_Fase1
 
-**Status:** aplicação, testes, workflow de CI e infraestrutura como código implementados. A execução mais recente pode ser consultada na [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions). As evidências da preparação local estão em `docs/evidencias-locais.txt`.
+**Status:** projeto publicado e CI aprovado em 5 de novembro de 2026. A [execução verificada](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/42007711406) passou nos 24 testes Python, nos 4 testes de Terraform e no teste da API em Docker. Também confirmou um plano sem mudanças e removeu o ambiente temporário. Veja o registro em [docs/evidencias-ci.md](docs/evidencias-ci.md) e as próximas execuções na [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions).
 
 ## O que está incluído
 
@@ -84,7 +84,7 @@ python scripts/smoke_test.py http://127.0.0.1:8000
 
 O `apply` pede confirmação. Os testes de Terraform usam um provider simulado: eles conferem a configuração, mas não criam contêineres. O `plan` e o `apply` normais usam o Docker real.
 
-O Terraform cria quatro recursos: uma imagem, uma rede, um volume e um contêiner. A imagem é reconstruída quando `app.py` ou o `Dockerfile` muda. O contêiner tem limite de 0,5 CPU e 128 MB, raiz somente leitura, usuário sem privilégios e acesso pela porta local 8000. O banco fica no volume.
+O Terraform cria quatro recursos: uma imagem, uma rede, um volume e um contêiner. A imagem é reconstruída quando `app.py` ou o `Dockerfile` muda. O contêiner tem limite de 0,5 CPU e 128 MB de RAM, com 256 MB para o total de RAM e swap. Ele usa raiz somente leitura, usuário sem privilégios e acesso pela porta local 8000. O banco fica no volume.
 
 Para personalizar, copie `infra/terraform.tfvars.example` para `infra/terraform.tfvars`. A porta deve ser um número inteiro entre 1024 e 65535. Use um nome de projeto diferente para manter ambientes separados.
 

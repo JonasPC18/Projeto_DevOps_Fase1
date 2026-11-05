@@ -38,7 +38,7 @@ O ambiente de desenvolvimento precisa de Python 3.12, Git, Docker Engine ou Dock
 
 O Terraform usa o provider `kreuzwerker/docker` 4.6.0 e cria uma imagem a partir do Dockerfile, uma rede bridge, um volume para SQLite e um contêiner da aplicação. Ele atua sobre um Docker já instalado. Não provisiona uma máquina virtual nem recursos em AWS.
 
-O contêiner usa 0,5 CPU e 128 MB de memória como limites. A API escuta na porta 8000 e o Docker publica essa porta somente em `127.0.0.1`. O processo usa um usuário sem privilégios, raiz somente leitura, `/tmp` temporário e volume gravável em `/data`. O healthcheck consulta a aplicação a cada dez segundos. Os logs têm rotação de dois arquivos de 5 MB.
+O contêiner usa 0,5 CPU e 128 MB de RAM como limites. O total de RAM e swap fica explicitamente definido em 256 MB para manter a configuração alinhada ao Docker. A API escuta na porta 8000 e o Docker publica essa porta somente em `127.0.0.1`. O processo usa um usuário sem privilégios, raiz somente leitura, `/tmp` temporário e volume gravável em `/data`. O healthcheck consulta a aplicação a cada dez segundos. Os logs têm rotação de dois arquivos de 5 MB.
 
 O volume mantém os dados quando o contêiner reinicia ou é substituído. O comando `terraform destroy`, porém, também remove o volume. Como se trata de um laboratório, a limpeza é explícita e os dados devem ser copiados antes caso precisem ser preservados.
 
@@ -64,7 +64,9 @@ Repositório: **https://github.com/JonasPC18/Projeto_DevOps_Fase1**.
 
 O repositório é público e contém `.github/workflows/ci.yml`, a pasta `infra/`, a aplicação e os testes. A aba [Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions) permite acompanhar as verificações automáticas.
 
-Os resultados da preparação local estão em `docs/evidencias-locais.txt`. A evidência remota deve registrar o commit testado, o link da execução e os resultados das etapas. O provisionamento temporário acontece no runner do GitHub e é removido ao final do workflow.
+O [CI aprovado em 5 de novembro de 2026](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/42007711406) validou o commit `814f79659ba64ea63232d8ab81808fa141dc9bbd`. Passaram os 24 testes Python, os 4 testes de IaC e o smoke test da API em Docker. O Terraform criou quatro recursos, confirmou um segundo plano sem mudanças e removeu os quatro recursos no encerramento.
+
+O registro dessa execução está em [evidencias-ci.md](evidencias-ci.md), com links e trechos dos logs. Os resultados anteriores de `evidencias-locais.txt` ficam como histórico da preparação. O ambiente real de teste foi provisionado temporariamente no runner do GitHub.
 
 ## 6. Relação com as aulas
 
