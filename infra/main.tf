@@ -28,6 +28,7 @@ resource "docker_container" "app" {
   image         = docker_image.app.image_id
   restart       = "unless-stopped"
   memory        = 128
+  memory_swap   = 256 # Total de RAM + swap, alinhado ao padrão do Docker.
   cpus          = "0.5"
   read_only     = true
   security_opts = ["no-new-privileges:true"]
