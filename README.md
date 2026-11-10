@@ -144,12 +144,3 @@ A proteção de `main` é uma melhoria planejada. Se for ativada, deve exigir pu
 ## Limites desta fase
 
 Este é um laboratório local, sem autenticação de usuários ou TLS. O servidor HTTP da biblioteca padrão atende ao objetivo didático, mas não é uma configuração de produção. A solução usa uma única instância e SQLite, sem alta disponibilidade. Para avançar, o projeto pode adotar um servidor próprio para produção, autenticação, backups, observabilidade e uma etapa de entrega contínua com aprovação.
-
-## Referências
-
-- Mapas das Aulas 1, 2, 3 e 4 enviados na atividade.
-- [GitHub Actions: construção e testes com Python](https://docs.github.com/en/actions/tutorials/build-and-test-code/python).
-- [Terraform com Docker](https://developer.hashicorp.com/terraform/tutorials/docker-get-started/docker-build).
-- [Provider Docker 4.6.0](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs).
-- [Testes com provider simulado](https://developer.hashicorp.com/terraform/language/tests/mocking).
-- [GitHub CLI: criar repositório](https://cli.github.com/manual/gh_repo_create).
