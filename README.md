@@ -2,8 +2,6 @@
 
 Este projeto usa uma API de tarefas para colocar em prática o planejamento, a integração contínua e a infraestrutura como código. A aplicação é pequena de propósito: o foco desta fase é deixar o processo de desenvolvimento fácil de repetir e verificar.
 
-**Conta escolhida:** JonasPC18.
-
 **Repositório:** https://github.com/JonasPC18/Projeto_DevOps_Fase1
 
 **Status:** projeto publicado e CI aprovado em 5 de novembro de 2026. A [execução verificada](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/42007711406) passou nos 24 testes Python, nos 4 testes de Terraform e no teste da API em Docker. Também confirmou um plano sem mudanças e removeu o ambiente temporário. Veja o registro em [docs/evidencias-ci.md](docs/evidencias-ci.md) e as próximas execuções na [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions).
