@@ -10,4 +10,6 @@ reports/
 *.tfvars
 !terraform.tfvars.example
 .env
+.secrets/
+.deploy/
 .DS_Store

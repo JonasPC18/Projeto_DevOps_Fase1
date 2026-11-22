@@ -1,146 +1,103 @@
-# Fase 1: DevOps na Prática
+# DevOps na Prática: fases 1 e 2
 
-Este projeto usa uma API de tarefas para colocar em prática o planejamento, a integração contínua e a infraestrutura como código. A aplicação é pequena de propósito: o foco desta fase é deixar o processo de desenvolvimento fácil de repetir e verificar.
+Uma API de tarefas serve de base para demonstrar integração e entrega contínua. O projeto usa Python, SQLite, Docker, Terraform e GitHub Actions. Na fase 2, Docker Compose reúne a API, o Prometheus e o Grafana.
 
 **Repositório:** https://github.com/JonasPC18/Projeto_DevOps_Fase1
 
-**Status:** projeto publicado e CI aprovado em 5 de novembro de 2026. A [execução verificada](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/42007711406) passou nos 24 testes Python, nos 4 testes de Terraform e no teste da API em Docker. Também confirmou um plano sem mudanças e removeu o ambiente temporário. Veja o registro em [docs/evidencias-ci.md](docs/evidencias-ci.md) e as próximas execuções na [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions).
+A fase 1 e seus resultados estão preservados em [docs/planejamento.md](docs/planejamento.md), [docs/evidencias-ci.md](docs/evidencias-ci.md) e [docs/fase1-readme.md](docs/fase1-readme.md).
 
-## O que está incluído
+## O que a fase 2 acrescenta
 
-- API em Python 3.12, usando apenas a biblioteca padrão.
-- Banco SQLite para guardar as tarefas.
-- 24 testes Python, incluindo integração HTTP.
-- Dockerfile com usuário sem privilégios e healthcheck.
-- Terraform para criar imagem, rede, volume e contêiner.
-- Testes de Terraform com provider simulado.
-- Workflow do GitHub Actions com provisionamento temporário e teste da API.
-- Planejamento completo em `docs/planejamento.md`.
+- Pipeline com testes, validação de IaC, análise de segurança, publicação no GHCR e deploy por digest.
+- 36 testes Python, incluindo métricas, logs e a política de bloqueio de vulnerabilidades.
+- Scripts de implantação e rollback com verificação de saúde e smoke test.
+- Métricas em `/metrics`, identificação do commit em `/version` e logs estruturados em JSON.
+- Dashboard provisionado no Grafana e regras de alerta no Prometheus.
+- Demonstração automática de persistência, rollback e disparo/resolução de um alerta.
 
-## Rodar sem Docker
+A [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions) mostra o resultado de cada execução. O [relatório da fase 2](docs/fase2.md) explica as decisões, os limites e os passos da demonstração.
 
-Pré-requisito: Python 3.12. Não há pacotes externos para instalar.
+## Executar os testes
 
-```bash
-python app.py
-```
-
-A API fica em http://127.0.0.1:8000 e o banco em `data/tasks.db`. No Windows, use `py -3.12` se o comando `python` não estiver disponível.
-
-Em outro terminal, execute:
-
-```bash
-python scripts/smoke_test.py http://127.0.0.1:8000
-```
-
-## Usar a API
-
-| Método e rota | Função | Corpo JSON |
-| --- | --- | --- |
-| `GET /health` | Confere a aplicação e o banco | Sem corpo |
-| `GET /tasks` | Lista tarefas | Sem corpo |
-| `POST /tasks` | Cadastra uma tarefa | `{"title":"Estudar CI"}` |
-| `GET /tasks/1` | Consulta uma tarefa | Sem corpo |
-| `PATCH /tasks/1` | Conclui ou reabre | `{"done":true}` |
-| `DELETE /tasks/1` | Exclui uma tarefa | Sem corpo |
-
-Exemplo em Bash:
-
-```bash
-curl http://127.0.0.1:8000/health
-curl -X POST http://127.0.0.1:8000/tasks \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Estudar CI"}'
-```
-
-O título precisa ter de 1 a 120 caracteres após remover espaços nas pontas. `done` aceita apenas `true` ou `false`. Corpos JSON podem ter até 4096 bytes. Os erros retornam JSON com status 400, 404, 405 ou 503, conforme o caso.
-
-## Rodar os testes
+Com Python 3.12 ou mais recente:
 
 ```bash
 python -m compileall -q app.py tests scripts
 python -m unittest discover -s tests -v
 ```
 
-Os testes criam bancos temporários e abrem a API em uma porta local disponível. Eles não usam os dados da sua aplicação.
+A aplicação não usa dependências Python externas. Para rodar sem Docker, execute `python app.py`. A API fica em http://127.0.0.1:8000.
 
-## Criar o ambiente com Terraform
+## Entrega contínua
 
-Pré-requisitos: Docker Engine iniciado, Terraform 1.14.6 e internet para baixar a imagem e o provider. O Docker precisa estar disponível ao seu usuário, sem `sudo`.
+O arquivo [.github/workflows/ci.yml](.github/workflows/ci.yml) tem três jobs:
 
-```bash
-docker version
-terraform version
-terraform -chdir=infra init
-terraform -chdir=infra fmt -check -recursive
-terraform -chdir=infra validate
-terraform -chdir=infra test
-terraform -chdir=infra plan
-terraform -chdir=infra apply
-python scripts/smoke_test.py http://127.0.0.1:8000
-```
+1. **Testes e infraestrutura:** valida Python, scripts, Compose e Terraform. Cria e remove um ambiente de teste com IaC.
+2. **Segurança e publicação:** após o primeiro job, constrói a imagem do commit, procura segredos e vulnerabilidades, gera a SBOM e publica a mesma imagem no GHCR.
+3. **Entrega e demonstração monitorada:** baixa a imagem aprovada pelo digest e usa Compose para executar a demonstração completa.
 
-O `apply` pede confirmação. Os testes de Terraform usam um provider simulado: eles conferem a configuração, mas não criam contêineres. O `plan` e o `apply` normais usam o Docker real.
+Pushes e pull requests passam pelo CI. A publicação e a entrega ocorrem somente em `main`, após os testes, e também podem ser acionadas manualmente na aba Actions. Pull requests não publicam imagens.
 
-O Terraform cria quatro recursos: uma imagem, uma rede, um volume e um contêiner. A imagem é reconstruída quando `app.py` ou o `Dockerfile` muda. O contêiner tem limite de 0,5 CPU e 128 MB de RAM, com 256 MB para o total de RAM e swap. Ele usa raiz somente leitura, usuário sem privilégios e acesso pela porta local 8000. O banco fica no volume.
+O ambiente `demonstracao` é temporário e termina com a limpeza do runner. A imagem permanece no GHCR. Isso demonstra a entrega de um pacote versionado e a implantação automatizada sem contratar um servidor. Uma instalação permanente depende de um host Docker próprio.
 
-Para personalizar, copie `infra/terraform.tfvars.example` para `infra/terraform.tfvars`. A porta deve ser um número inteiro entre 1024 e 65535. Use um nome de projeto diferente para manter ambientes separados.
+Os artifacts `ci-<SHA>`, `seguranca-<SHA>` e `entrega-<SHA>` guardam os relatórios por 30 dias. O workflow usa SHA fixo nas ações e limita `packages: write` ao job de publicação. O token do GitHub é temporário e não fica nos arquivos.
 
-O socket padrão atende ao Docker Engine em Linux. No Docker Desktop, consulte o endpoint com:
+## Executar o mesmo deploy em um host Docker
 
-```bash
-docker context inspect --format '{{.Endpoints.docker.Host}}'
-```
-
-Copie o endereço retornado para `docker_host` em `infra/terraform.tfvars`. No Windows, uma opção simples é executar o projeto dentro do WSL com integração do Docker Desktop habilitada. Não exponha o daemon Docker em uma porta TCP sem autenticação.
-
-Para consultar logs:
-
-```bash
-docker logs devops-fase1-tarefas
-```
-
-Para conferir a convergência, execute `terraform -chdir=infra plan -detailed-exitcode` depois do `apply`. O código 0 indica ausência de mudanças, 2 indica mudanças propostas e 1 indica erro.
-
-Para limpar o laboratório:
-
-```bash
-terraform -chdir=infra destroy
-```
-
-**O destroy também apaga o volume e as tarefas.** Reiniciar ou substituir apenas o contêiner preserva o volume. Faça cópia dos dados antes de destruir o ambiente se quiser guardá-los.
-
-## O pipeline de CI
-
-O arquivo `.github/workflows/ci.yml` roda em pushes, pull requests para `main` e disparos manuais. Ele usa `ubuntu-24.04`, Python 3.12 e Terraform 1.14.6.
-
-1. Obtém o código e prepara Python.
-2. Verifica a sintaxe, executa os testes e gera `app.zip`.
-3. Confere a formatação, inicializa e valida o Terraform.
-4. Executa os testes da infraestrutura com provider simulado.
-5. Planeja e cria um ambiente Docker temporário no runner.
-6. Executa o smoke test pela API e confere se um novo plano não propõe mudanças.
-7. Coleta os logs, remove o ambiente e guarda os relatórios por sete dias.
-
-Uma falha encerra as etapas normais. A limpeza e a coleta de evidências usam `always()`. O Bash preserva os códigos de erro mesmo nos comandos que usam `tee`. Não há credenciais de nuvem, deploy em produção ou publicação de imagem em registry.
-
-O `GITHUB_TOKEN` tem apenas `contents: read`. As ações usam versões principais estáveis. Para endurecer o fluxo em produção, fixe cada ação por SHA revisado e a imagem Python por digest, com atualizações controladas.
-
-## Trabalhar com o repositório
-
-O repositório é público e está na conta JonasPC18. Para obter o projeto:
+Pré-requisitos: Linux ou WSL, Docker Engine com Compose v2, Python 3, Bash e `flock`. Para o conjunto API, Prometheus e Grafana, considere inicialmente 2 CPUs, 2 GB de RAM e 3 GB livres. É uma estimativa para o laboratório.
 
 ```bash
 git clone https://github.com/JonasPC18/Projeto_DevOps_Fase1.git
 cd Projeto_DevOps_Fase1
+# Copie a referencia ghcr.io/...@sha256:... da execucao aprovada.
+bash scripts/deploy.sh IMAGEM_POR_DIGEST
 ```
 
-Crie uma branch curta para cada mudança, envie os commits e abra um pull request para `main`. Confira o check **Testes e infraestrutura** antes de integrar o código.
+Se o pacote GHCR estiver privado, faça `docker login ghcr.io` com uma credencial que tenha acesso de leitura ao pacote. Não coloque tokens no código ou em argumentos públicos. No workflow, essa autenticação já usa o `GITHUB_TOKEN`.
 
-A aba [Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions) mostra cada execução. O artifact `evidencias-<SHA>` reúne relatórios e o pacote da aplicação por sete dias. Os testes e os comandos completos também estão neste repositório, permitindo reproduzir a verificação depois que o artifact expirar.
+Para experimentar uma imagem construída localmente:
 
-A proteção de `main` é uma melhoria planejada. Se for ativada, deve exigir pull request e o check **Testes e infraestrutura**. O YAML sozinho não bloqueia o merge. Essa regra não é apresentada como já configurada.
+```bash
+docker build --build-arg APP_VERSION=local -t devops-tarefas:local .
+DEPLOY_SKIP_PULL=1 bash scripts/deploy.sh devops-tarefas:local
+```
 
-## Limites desta fase
+Endereços locais:
 
-Este é um laboratório local, sem autenticação de usuários ou TLS. O servidor HTTP da biblioteca padrão atende ao objetivo didático, mas não é uma configuração de produção. A solução usa uma única instância e SQLite, sem alta disponibilidade. Para avançar, o projeto pode adotar um servidor próprio para produção, autenticação, backups, observabilidade e uma etapa de entrega contínua com aprovação.
+| Serviço | Endereço |
+| --- | --- |
+| API | http://127.0.0.1:8000/health |
+| Prometheus | http://127.0.0.1:9090 |
+| Grafana | http://127.0.0.1:3000 |
+
+O usuário do Grafana é `admin`. A senha aleatória fica em `.secrets/grafana_admin_password`, fora do Git e dos relatórios. Consulte esse arquivo apenas no seu computador. A senha inicial persiste no volume do Grafana. Para mudar portas, copie `.env.example` para `.env` e edite os valores.
+
+Depois de duas entregas aprovadas com imagens diferentes, o rollback manual usa a versão anterior:
+
+```bash
+bash scripts/rollback.sh
+```
+
+Se uma implantação falhar na saúde ou no smoke test, o script tenta restaurar a imagem anterior, preserva o volume e retorna erro. No primeiro deploy ainda não existe uma versão anterior.
+
+## Logs, métricas e limpeza
+
+```bash
+export APP_IMAGE="$(cat .deploy/devops-fase2/current-image)"
+docker compose logs --follow api
+docker compose ps
+# Para encerrar os servicos mantendo os volumes:
+docker compose down
+```
+
+O dashboard **DevOps - API de tarefas** mostra disponibilidade, requisições, erros 5xx e latência p95. O alerta `ApiIndisponivel` exige 15 segundos de falha após a observação pelo Prometheus. O laboratório não envia notificações por e-mail ou chat.
+
+**`docker compose down --volumes` remove os dados do laboratório.** O workflow usa essa opção apenas no runner temporário. Reiniciar ou atualizar o contêiner mantém o volume SQLite.
+
+## Segurança e limites
+
+O Trivy bloqueia segredos detectados e vulnerabilidades HIGH/CRITICAL que tenham correção disponível. Achados sem correção e de menor severidade continuam registrados no relatório completo. Passar nessa política não significa ausência de vulnerabilidades.
+
+Os serviços publicam portas apenas em `127.0.0.1`. A API roda sem root, com raiz somente leitura, capabilities removidas e limites de recursos. Os logs não registram corpo da requisição nem query string.
+
+Este ambiente é didático, com uma instância e SQLite. Docker Compose coordena os serviços em um único host. A proteção de `main`, aprovação humana para produção, TLS, autenticação da API, backups externos e alta disponibilidade são evoluções futuras. O histórico da fase 1 explica como executar o laboratório Terraform separadamente, evitando usar a mesma porta ao mesmo tempo.

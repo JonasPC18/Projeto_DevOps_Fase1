@@ -1,0 +1,4 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+# Falha controlada apenas na demonstracao: processo ativo sem servidor HTTP.
+CMD ["python", "-c", "import time; time.sleep(300)"]

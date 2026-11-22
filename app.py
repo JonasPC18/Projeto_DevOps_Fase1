@@ -4,7 +4,12 @@ import json
 import os
 import re
 import sqlite3
+import sys
+import threading
+import time
+from collections import defaultdict
 from contextlib import closing
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -69,11 +74,65 @@ class TaskStore:
                 raise KeyError("Tarefa não encontrada")
 
 
-def handler_for(store):
+class Metrics:
+    """Contadores e histograma com rótulos limitados às rotas conhecidas."""
+
+    buckets = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.requests = defaultdict(int)
+        self.bucket_counts = [0] * len(self.buckets)
+        self.duration_sum = 0.0
+        self.duration_count = 0
+
+    @staticmethod
+    def route(path):
+        path = urlsplit(path).path
+        if path in ("/health", "/version", "/tasks", "/metrics"):
+            return path
+        return "/tasks/{id}" if re.fullmatch(r"/tasks/[1-9][0-9]{0,9}", path) else "other"
+
+    def observe(self, method, route, status, duration):
+        with self.lock:
+            self.requests[(method, route, status)] += 1
+            self.duration_sum += duration
+            self.duration_count += 1
+            for index, bound in enumerate(self.buckets):
+                self.bucket_counts[index] += int(duration <= bound)
+
+    def render(self):
+        with self.lock:
+            lines = ["# HELP devops_http_requests_total Requisicoes HTTP por metodo, rota e status.",
+                     "# TYPE devops_http_requests_total counter"]
+            for (method, route, status), count in sorted(self.requests.items()):
+                labels = f'method={json.dumps(method)},route={json.dumps(route)},status="{status}"'
+                lines.append(f"devops_http_requests_total{{{labels}}} {count}")
+            lines += ["# HELP devops_http_request_duration_seconds Duracao das requisicoes HTTP.",
+                      "# TYPE devops_http_request_duration_seconds histogram"]
+            for bound, count in zip(self.buckets, self.bucket_counts):
+                lines.append(f'devops_http_request_duration_seconds_bucket{{le="{bound:g}"}} {count}')
+            lines += [f'devops_http_request_duration_seconds_bucket{{le="+Inf"}} {self.duration_count}',
+                      f"devops_http_request_duration_seconds_sum {self.duration_sum:.9f}",
+                      f"devops_http_request_duration_seconds_count {self.duration_count}"]
+        return "\n".join(lines) + "\n"
+
+
+def handler_for(store, metrics=None):
+    metrics = metrics or Metrics()
+
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
             super().setup()
             self.connection.settimeout(5)
+
+        def log_message(self, *_args):
+            # O evento JSON abaixo substitui o log HTTP padrão.
+            pass
+
+        def send_response(self, code, message=None):
+            self.response_status = code
+            super().send_response(code, message)
 
         def send_json(self, status, payload=None):
             body = b"" if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -98,10 +157,36 @@ def handler_for(store):
             return data
 
         def handle_request(self):
+            started = time.monotonic()
+            self.response_status = 500
+            route = metrics.route(self.path)
+            try:
+                return self.dispatch()
+            finally:
+                duration = time.monotonic() - started
+                if route != "/metrics":
+                    metrics.observe(self.command, route, self.response_status, duration)
+                    print(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(),
+                                      "event": "http_request", "method": self.command,
+                                      "route": route, "status": self.response_status,
+                                      "duration_ms": round(duration * 1000, 3)}, ensure_ascii=False),
+                          file=sys.stderr, flush=True)
+
+        def dispatch(self):
             path = urlsplit(self.path).path
             match = re.fullmatch(r"/tasks/([1-9][0-9]{0,9})", path)
             task_id = int(match[1]) if match else None
             try:
+                if path == "/metrics" and self.command == "GET":
+                    body = metrics.render().encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                if path == "/version" and self.command == "GET":
+                    return self.send_json(200, {"version": os.environ.get("APP_VERSION", "local")})
                 if path == "/health" and self.command == "GET":
                     store.healthy()
                     return self.send_json(200, {"status": "ok"})
@@ -147,7 +232,8 @@ if __name__ == "__main__":
         int(os.environ.get("PORT", "8000")),
         os.environ.get("DB_PATH", "data/tasks.db"),
     )
-    print(f"API disponível em http://{server.server_address[0]}:{server.server_address[1]}", flush=True)
+    print(json.dumps({"event": "startup", "host": server.server_address[0],
+                      "port": server.server_address[1], "version": os.environ.get("APP_VERSION", "local")}), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,11 +1,16 @@
 FROM python:3.12-slim
+ARG APP_VERSION=local
+LABEL org.opencontainers.image.source="https://github.com/JonasPC18/Projeto_DevOps_Fase1" \
+    org.opencontainers.image.title="API de tarefas - DevOps"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
     PORT=8000 \
-    DB_PATH=/data/tasks.db
+    DB_PATH=/data/tasks.db \
+    APP_VERSION=${APP_VERSION}
 WORKDIR /app
-RUN useradd --uid 10001 --create-home appuser \
+RUN python -m pip uninstall -y pip setuptools wheel \
+    && useradd --uid 10001 --create-home appuser \
     && mkdir /data && chown appuser:appuser /data
 COPY --chown=appuser:appuser app.py /app/app.py
 USER appuser

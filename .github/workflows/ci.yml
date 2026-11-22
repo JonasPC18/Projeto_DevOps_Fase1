@@ -1,4 +1,4 @@
-name: CI
+name: CI e CD
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -26,12 +26,12 @@ jobs:
 
     steps:
       - name: Obter o código
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Preparar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -39,11 +39,14 @@ jobs:
         run: |
           mkdir -p reports
           python -m compileall -q app.py tests scripts
+          bash -n scripts/deploy.sh scripts/rollback.sh
+          python scripts/init_secrets.py
+          APP_IMAGE=devops-local:test docker compose config --quiet
           python -m unittest discover -s tests -v 2>&1 | tee reports/tests.txt
           python -m zipfile -c reports/app.zip app.py Dockerfile
 
       - name: Preparar Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.14.6"
           terraform_wrapper: false
@@ -86,9 +89,127 @@ jobs:
 
       - name: Guardar relatórios e aplicação
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: evidencias-${{ github.sha }}
+          name: ci-${{ github.sha }}
           path: reports/
-          retention-days: 7
+          retention-days: 30
+          if-no-files-found: warn
+
+  package:
+    name: Seguranca e publicacao da imagem
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.publish.outputs.image_ref }}
+    env:
+      TRIVY_IMAGE: aquasec/trivy:0.76.2
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Obter o codigo aprovado
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Construir a imagem da versao
+        run: |
+          mkdir -p reports
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          docker build --pull --build-arg APP_VERSION="$GITHUB_SHA" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+          docker save "$image" -o reports/image.tar
+      - name: Procurar segredos nos arquivos versionados
+        run: |
+          docker run --rm -v "$PWD:/project:ro" "$TRIVY_IMAGE" fs \
+            --scanners secret --exit-code 1 --skip-dirs .git,.terraform,.secrets,.deploy,reports /project \
+            2>&1 | tee reports/secrets.txt
+      - name: Analisar vulnerabilidades e gerar SBOM
+        run: |
+          docker run --rm -v "$PWD/reports:/reports" -v trivy-cache:/root/.cache/trivy \
+            "$TRIVY_IMAGE" image --input /reports/image.tar --scanners vuln \
+            --format json --output /reports/trivy.json
+          python3 scripts/security_gate.py reports/trivy.json | tee reports/security-gate.json
+          docker run --rm -v "$PWD/reports:/reports" -v trivy-cache:/root/.cache/trivy \
+            "$TRIVY_IMAGE" image --input /reports/image.tar \
+            --format cyclonedx --output /reports/sbom.cdx.json
+      - name: Publicar a mesma imagem verificada
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE" | tee reports/push.txt
+          digest="$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}')"
+          [[ "$digest" == *@sha256:* ]]
+          echo "image_ref=$digest" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$digest" > reports/image-reference.txt
+          printf '### Imagem aprovada\n\n`%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+      - name: Encerrar sessao do registry
+        if: always()
+        run: docker logout ghcr.io
+      - name: Guardar relatorios de seguranca
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: seguranca-${{ github.sha }}
+          path: |
+            reports/*.json
+            reports/*.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+  delivery:
+    name: Entrega e demonstracao monitorada
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: demonstracao
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      APP_IMAGE: ${{ needs.package.outputs.image_ref }}
+      COMPOSE_PROJECT_NAME: devops-fase2-demo
+    steps:
+      - name: Obter os scripts da entrega
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Autenticar para baixar a imagem aprovada
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Demonstrar deploy, persistencia, rollback e alertas
+        run: |
+          mkdir -p reports
+          python3 scripts/release_demo.py "$APP_IMAGE" 2>&1 | tee reports/demonstracao.txt
+      - name: Coletar estado e logs
+        if: always()
+        run: |
+          mkdir -p reports
+          docker compose -f compose.yaml ps -a --format json > reports/compose-status.json
+          docker compose -f compose.yaml logs --no-color > reports/compose-logs.txt 2>&1
+          docker stats --no-stream --format '{{json .}}' > reports/recursos.jsonl
+      - name: Remover o laboratorio temporario
+        if: always()
+        run: |
+          docker compose -f compose.yaml down --volumes --remove-orphans
+          docker logout ghcr.io
+      - name: Guardar evidencias da entrega
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: entrega-${{ github.sha }}
+          path: reports/
+          retention-days: 30
           if-no-files-found: warn
