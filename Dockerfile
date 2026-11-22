@@ -9,7 +9,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DB_PATH=/data/tasks.db \
     APP_VERSION=${APP_VERSION}
 WORKDIR /app
-RUN python -m pip uninstall -y pip setuptools wheel \
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y pip setuptools wheel \
     && useradd --uid 10001 --create-home appuser \
     && mkdir /data && chown appuser:appuser /data
 COPY --chown=appuser:appuser app.py /app/app.py

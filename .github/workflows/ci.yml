@@ -135,10 +135,10 @@ jobs:
           docker run --rm -v "$PWD/reports:/reports" -v trivy-cache:/root/.cache/trivy \
             "$TRIVY_IMAGE" image --input /reports/image.tar --scanners vuln \
             --format json --output /reports/trivy.json
-          python3 scripts/security_gate.py reports/trivy.json | tee reports/security-gate.json
           docker run --rm -v "$PWD/reports:/reports" -v trivy-cache:/root/.cache/trivy \
             "$TRIVY_IMAGE" image --input /reports/image.tar \
             --format cyclonedx --output /reports/sbom.cdx.json
+          python3 scripts/security_gate.py reports/trivy.json | tee reports/security-gate.json
       - name: Publicar a mesma imagem verificada
         id: publish
         env:
