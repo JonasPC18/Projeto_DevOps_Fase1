@@ -17,6 +17,8 @@ A fase 1 e seus resultados estão preservados em [docs/planejamento.md](docs/pla
 
 A [aba Actions](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions) mostra o resultado de cada execução. O [relatório da fase 2](docs/fase2.md) explica as decisões, os limites e os passos da demonstração.
 
+A fase 2 foi validada em [uma execução completa aprovada](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/45024861048), em 22/11/2026. As [evidências](docs/evidencias-fase2.md) incluem a imagem publicada, os testes de recuperação e os resultados de segurança.
+
 ## Executar os testes
 
 Com Python 3.12 ou mais recente:

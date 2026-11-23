@@ -16,7 +16,7 @@ As ações do GitHub estão fixadas por SHA. O job de publicação tem `packages
 
 ## Containers e orquestração
 
-O Dockerfile mantém Python 3.12, a biblioteca padrão e o usuário UID 10001. O Compose reúne três serviços em uma rede bridge: API, Prometheus 3.16.0 e Grafana 13.3.1. Os arquivos de configuração e o dashboard fazem parte do repositório.
+O Dockerfile mantém Python 3.12, a biblioteca padrão e o usuário UID 10001. A construção atualiza os pacotes do sistema base antes da análise de segurança. O Compose reúne três serviços em uma rede bridge: API, Prometheus 3.16.0 e Grafana 13.3.1. Os arquivos de configuração e o dashboard fazem parte do repositório.
 
 | Serviço | Limites e persistência |
 | --- | --- |
@@ -46,9 +46,11 @@ Os logs da API são JSON com horário, evento, método, rota, status e duração
 flowchart TD
     A[Push ou pull request] --> B[Testes Python e configuracao]
     B --> C[Terraform e ambiente de CI]
-    C --> D{Main e CI aprovado?}
-    D -->|PR| E[Resultado para revisao]
-    D -->|Sim| F[Construir imagem e analisar seguranca]
+    C --> D{CI aprovado?}
+    D -->|Nao| H[Entrega bloqueada]
+    D -->|Sim| P{Branch main?}
+    P -->|PR ou outra branch| E[Resultado para revisao]
+    P -->|Sim| F[Construir imagem e analisar seguranca]
     F --> G{Politica aprovada?}
     G -->|Nao| H[Entrega bloqueada]
     G -->|Sim| I[Publicar imagem no GHCR]
@@ -74,7 +76,7 @@ O ambiente `demonstracao` é efêmero no GitHub Actions. A imagem publicada perm
 
 ## Resultados e melhorias
 
-Os 36 testes Python passaram na preparação local. A validação remota da entrega será registrada em `docs/evidencias-fase2.md` após a execução. Falhas controladas fazem parte do roteiro e só contam como aprovadas se a recuperação e as verificações posteriores funcionarem.
+Os três jobs passaram na [execução 45024861048](https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/45024861048), em 22/11/2026. Os 36 testes Python e os 4 testes Terraform passaram. A demonstração confirmou deploy por digest, persistência, rollback automático, monitoramento, disparo/resolução do alerta e logs JSON. O roteiro levou 121,78 segundos, incluindo preparação e esperas. As [evidências detalhadas](evidencias-fase2.md) registram o commit, a imagem, os achados de segurança que permanecem e as correções feitas durante a implementação. Falhas controladas só contam como aprovadas quando a recuperação e as verificações posteriores funcionam.
 
 As próximas melhorias são proteger a branch principal, exigir aprovação para produção, fixar também as imagens de base e monitoramento por digest, automatizar atualizações de dependências, adicionar autenticação/TLS e testar backups. Uma evolução para várias réplicas exigiria rever o banco SQLite e planejar uma infraestrutura de cluster. Também seria útil medir carga, retenção de logs e objetivos de disponibilidade antes de definir recursos de produção.
 
@@ -86,4 +88,4 @@ As próximas melhorias são proteger a branch principal, exigir aprovação para
 - Grafana: https://grafana.com/docs/grafana/latest/administration/provisioning/
 - Trivy: https://trivy.dev/docs/latest/configuration/filtering/
 
-O relatório segue os temas das aulas indicados no enunciado. Os materiais das aulas 5 a 10 não foram anexados nesta conversa.
+O relatório reúne os temas do enunciado: CD, containers e orquestração, monitoramento, logging, segurança, testes e gerenciamento de configurações.

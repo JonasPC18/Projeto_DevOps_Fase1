@@ -1,0 +1,53 @@
+{
+  "run_id": 45024861048,
+  "sha": "3b86771142d5fd6c3a89bc778f4e44c03a06cbfe",
+  "image": "ghcr.io/jonaspc18/projeto_devops_fase1@sha256:1563ab53b32dcaf09fc880e11d35c7c74f44247838cbc46324b0a4feac9f9474",
+  "demo_seconds": 121.78,
+  "json_log_events": 21,
+  "security_counts": {
+    "CRITICAL": 0,
+    "HIGH": 50,
+    "MEDIUM": 74,
+    "LOW": 79,
+    "UNKNOWN": 7
+  },
+  "events": [
+    {
+      "step": "deploy_aprovado",
+      "elapsed_seconds": 25.58,
+      "image": "ghcr.io/jonaspc18/projeto_devops_fase1@sha256:1563ab53b32dcaf09fc880e11d35c7c74f44247838cbc46324b0a4feac9f9474",
+      "version": "3b86771142d5fd6c3a89bc778f4e44c03a06cbfe"
+    },
+    {
+      "step": "persistencia_apos_reinicio_aprovada",
+      "elapsed_seconds": 37.83
+    },
+    {
+      "step": "rollback_automatico_aprovado",
+      "elapsed_seconds": 83.3,
+      "failed_release_rejected": true,
+      "data_preserved": true
+    },
+    {
+      "step": "monitoramento_aprovado",
+      "elapsed_seconds": 83.33,
+      "prometheus_up": 1,
+      "dashboard": "devops-tarefas"
+    },
+    {
+      "step": "alerta_de_indisponibilidade_disparado",
+      "elapsed_seconds": 115.49,
+      "state": "firing"
+    },
+    {
+      "step": "alerta_resolvido_e_api_recuperada",
+      "elapsed_seconds": 121.65
+    },
+    {
+      "step": "demonstracao_concluida",
+      "elapsed_seconds": 121.78,
+      "json_log_events": 21
+    }
+  ],
+  "source_url": "https://github.com/JonasPC18/Projeto_DevOps_Fase1/actions/runs/45024861048"
+}
